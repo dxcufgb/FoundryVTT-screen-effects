@@ -1,0 +1,48 @@
+{
+  "DXSE": {
+    "Effect": {
+      "LowHp": "Low HP",
+      "Poisoned": "Poisoned",
+      "Charmed": "Charmed",
+      "Stunned": "Stunned",
+      "Frightened": "Frightened",
+      "Paralyzed": "Paralyzed",
+      "Petrified": "Petrified",
+      "Invisible": "Invisible",
+      "Restrained": "Restrained / Grappled",
+      "Exhaustion": "Exhaustion",
+      "Unconscious": "Unconscious / Dying / Dead"
+    },
+    "Settings": {
+      "Enabled": {
+        "Name": "Show screen effects",
+        "Hint": "Show a full-screen effect while your character suffers a condition. Turns them off on this computer only."
+      },
+      "Intensity": {
+        "Name": "Effect strength",
+        "Hint": "How strong the screen effects are on this computer."
+      },
+      "Calm": {
+        "Name": "Reduce motion",
+        "Hint": "No pulsing, swaying or blinking: the effects stay still. Also follows your system's reduced-motion setting."
+      },
+      "LowHp": {
+        "Name": "Low HP threshold (%)",
+        "Hint": "The Low HP effect starts when a character has this share of their hit points or less, and grows stronger as HP drops."
+      },
+      "Gm": {
+        "Name": "Show effects to the GM",
+        "Hint": "Also show the effects on the GM's screen for the token the GM has selected."
+      }
+    },
+    "Menu": {
+      "Name": "Screen effects",
+      "Label": "Choose effects",
+      "Hint": "Turn single effects on or off on this computer, and preview them.",
+      "Intro": "Choose which conditions show an effect on your screen. Preview shows an effect for a few seconds.",
+      "Preview": "Preview",
+      "PreviewHint": "Show this effect for 4 seconds",
+      "Save": "Save"
+    }
+  }
+}
