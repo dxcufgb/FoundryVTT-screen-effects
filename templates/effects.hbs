@@ -1,0 +1,13 @@
+<div class="dxse-root">
+<p class="hint">{{localize "DXSE.Menu.Intro"}}</p>
+<div class="dxse-list">
+  {{#each effects}}
+  <label for="dxse-{{id}}">{{label}}</label>
+  <input type="checkbox" id="dxse-{{id}}" name="{{id}}" {{checked enabled}}>
+  <button type="button" data-action="preview" data-effect="{{id}}" data-tooltip="{{localize 'DXSE.Menu.PreviewHint'}}"><i class="fa-solid fa-eye"></i> {{localize "DXSE.Menu.Preview"}}</button>
+  {{/each}}
+</div>
+<footer class="form-footer">
+  <button type="submit"><i class="fa-solid fa-floppy-disk"></i> {{localize "DXSE.Menu.Save"}}</button>
+</footer>
+</div>
