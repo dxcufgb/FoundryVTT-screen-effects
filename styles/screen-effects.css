@@ -8,6 +8,7 @@
 #dxse-overlay {
   position: fixed;
   inset: 0;
+  right: var(--dxse-sidebar, 0px);   /* stops at the sidebar: its width is measured by the script */
   pointer-events: none;
   overflow: hidden;
   --dxse-master: 1;

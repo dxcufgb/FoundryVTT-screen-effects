@@ -11,7 +11,7 @@
  * they turn on "Show effects to the GM".
  *
  * The effects are pure CSS layers placed over the game canvas and under Foundry's UI,
- * so they cover the whole play area but never block clicks.
+ * so they cover the play area (up to the sidebar) but never block clicks.
  *
  * API: game.modules.get("dxcufgbs-screen-effects").api
  *   .preview("poisoned", 4000)    show an effect for a few seconds
@@ -40,7 +40,8 @@ const state = {
   layers: {},
   lastControlled: null,
   previews: new Map(),      // effect id -> {until, timer}
-  timer: null
+  timer: null,
+  sidebarObserver: null
 };
 
 /* -------------------------------------------- */
@@ -114,6 +115,31 @@ function buildOverlay() {
     document.body.prepend(overlay);
   }
   state.overlay = overlay;
+  watchSidebar();
+}
+
+/**
+ * Keep the overlay from covering the sidebar: its width is taken off the overlay's right side,
+ * and followed as the sidebar expands, collapses or changes with the window.
+ */
+function watchSidebar() {
+  if (state.sidebarObserver) return;
+  const apply = () => {
+    const sidebar = document.getElementById("sidebar");
+    const width = sidebar ? sidebar.getBoundingClientRect().width : 0;
+    state.overlay?.style.setProperty("--dxse-sidebar", `${Math.max(0, Math.round(width))}px`);
+  };
+  apply();
+  const sidebar = document.getElementById("sidebar");
+  if (sidebar && "ResizeObserver" in window) {
+    state.sidebarObserver = new ResizeObserver(apply);
+    state.sidebarObserver.observe(sidebar);
+  }
+  window.addEventListener("resize", apply);
+  Hooks.on("collapseSidebar", () => {
+    apply();
+    setTimeout(apply, 350);   // once more after the collapse animation has finished
+  });
 }
 
 /* -------------------------------------------- */
