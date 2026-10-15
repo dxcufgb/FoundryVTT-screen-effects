@@ -11,7 +11,7 @@
  * they turn on "Show effects to the GM".
  *
  * The effects are layers placed over the game canvas and under Foundry's UI, so they cover
- * the play area (up to the sidebar) but never block clicks. Low HP is pure CSS; the conditions
+ * the play area (up to the sidebar, and under its tabs) but never block clicks. Low HP is pure CSS; the conditions
  * are animated 2D canvases (scripts/overlays.js) with a backdrop filter on the map behind them.
  * Foundry's own canvas is never transformed, so the map keeps working normally.
  *
@@ -145,22 +145,24 @@ function buildOverlay() {
 }
 
 /**
- * Keep the overlay from covering the sidebar: its width is taken off the overlay's right side,
- * and followed as the sidebar expands, collapses or changes with the window.
+ * Keep the overlay from covering the sidebar: the sidebar's width, less the full width of its
+ * tab strip (padding and border included), is taken off the overlay's right side. So the
+ * effects stop at the sidebar's content but still run under the tabs. Followed as the sidebar
+ * expands, collapses or changes with the window.
  */
 function watchSidebar() {
   if (state.sidebarObserver) return;
+  const width = id => document.getElementById(id)?.getBoundingClientRect().width ?? 0;
   const apply = () => {
-    const sidebar = document.getElementById("sidebar");
-    const width = sidebar ? sidebar.getBoundingClientRect().width : 0;
-    state.overlay?.style.setProperty("--dxse-sidebar", `${Math.max(0, Math.round(width))}px`);
+    const inset = width("sidebar") - width("sidebar-tabs");
+    state.overlay?.style.setProperty("--dxse-sidebar", `${Math.max(0, Math.round(inset))}px`);
     resizeCanvases();
   };
   apply();
-  const sidebar = document.getElementById("sidebar");
-  if (sidebar && "ResizeObserver" in window) {
+  const watched = ["sidebar", "sidebar-tabs"].map(id => document.getElementById(id)).filter(Boolean);
+  if (watched.length && "ResizeObserver" in window) {
     state.sidebarObserver = new ResizeObserver(apply);
-    state.sidebarObserver.observe(sidebar);
+    for (const el of watched) state.sidebarObserver.observe(el);
   }
   window.addEventListener("resize", apply);
   Hooks.on("collapseSidebar", () => {

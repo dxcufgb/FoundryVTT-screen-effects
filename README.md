@@ -38,7 +38,7 @@ https://github.com/dxcufgb/FoundryVTT-screen-effects/releases/latest/download/mo
 - Effects combine (for example poisoned at low HP).
 - **Whose effects:** the token you have selected. With several selected, the one you selected last. With none selected, your assigned character. Only tokens you own count.
 - The GM sees no effects unless they turn on **Show effects to the GM** (then for the token the GM selects).
-- The effects sit over the game canvas and under Foundry's windows, stop at the sidebar, and never block clicks.
+- The effects sit over the game canvas and under Foundry's windows, stop at the sidebar (running under its tabs), and never block clicks.
 - Made for a top-down map: effects close in from the screen edges or lie flat over the map, and Foundry's own canvas is never moved, so clicking, dragging and measuring work as normal.
 - Drawn in code (CSS for Low HP, animated 2D canvases for the conditions): no images to download. With **Reduce motion** each effect shows as a still frame.
 
