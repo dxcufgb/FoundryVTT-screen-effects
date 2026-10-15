@@ -2,6 +2,11 @@
   "DXSE": {
     "Effect": {
       "LowHp": "Low HP",
+      "Blinded": "Blinded",
+      "Deafened": "Deafened",
+      "Grappled": "Grappled",
+      "Incapacitated": "Incapacitated",
+      "Prone": "Prone",
       "Poisoned": "Poisoned",
       "Charmed": "Charmed",
       "Stunned": "Stunned",
@@ -9,7 +14,7 @@
       "Paralyzed": "Paralyzed",
       "Petrified": "Petrified",
       "Invisible": "Invisible",
-      "Restrained": "Restrained / Grappled",
+      "Restrained": "Restrained",
       "Exhaustion": "Exhaustion",
       "Unconscious": "Unconscious / Dying / Dead"
     },

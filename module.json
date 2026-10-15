@@ -1,7 +1,7 @@
 {
   "id": "dxcufgbs-screen-effects",
   "title": "Dxcufgb's screen effects",
-  "description": "Full-screen effects on a player's own screen while their character suffers a condition: low HP, poisoned, charmed, stunned, frightened, paralyzed, petrified, invisible, restrained, exhaustion (by level) and unconscious/dying.",
+  "description": "Animated full-screen effects on a player's own screen while their character suffers a condition: every D&D 5e and 2024 condition (blinded, charmed, deafened, exhaustion by level, frightened, grappled, incapacitated, invisible, paralyzed, petrified, poisoned, prone, restrained, stunned, unconscious/dying/dead) plus low HP. Made for a top-down map.",
   "version": "1.0.0",
   "authors": [
     {
