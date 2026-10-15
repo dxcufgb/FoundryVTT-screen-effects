@@ -553,22 +553,45 @@ export const OVERLAYS = {
     }
   },
 
-  // Ringing white flashes, a throbbing blur and stars circling the middle of the screen.
+  // Ringing white flashes, a throbbing blur, and rings of stars circling the screen just inside its edges.
   stunned: {
     filter: t => `blur(${(1 + 1.8 * (0.5 + 0.5 * Math.sin(t * 3))).toFixed(2)}px) saturate(0.8) brightness(${(1 + 0.15 * Math.max(0, Math.sin(t * 1.2 - 1))).toFixed(3)})`,
-    init: () => ({ flash: 0, next: 1 }),
+    init: () => ({
+      flash: 0, next: 1,
+      // Star rings, each a rounded rectangle just inside the screen edges.
+      // inset: distance from the edge (share of the short side); size: share of the width;
+      // speed: how fast it circles (1 = a quarter turn per second; negative goes the other way)
+      rings: [
+        { inset: 0.09, size: 0.016, count: 8, speed: 0.16, color: "#fff3b0", glow: true },
+        { inset: 0.13, size: 0.010, count: 12, speed: -0.28, color: "#ffe79a" },
+        { inset: 0.06, size: 0.007, count: 18, speed: 0.45, color: "#ffffff" },
+        { inset: 0.16, size: 0.0045, count: 26, speed: -0.7, color: "#fffbe0" }
+      ].map(r => ({ ...r, stars: Array.from({ length: r.count }, (_, i) => ({ a: (i / r.count) * TAU + rand(-0.15, 0.15), ph: rand(0, TAU), bob: rand(0, TAU) })) }))
+    }),
     draw(ctx, W, H, t, dt, s) {
       if (dt > 0 && (s.next -= dt) <= 0) { s.flash = 1; s.next = rand(2.5, 4); }
       s.flash = Math.max(0, s.flash - dt * 1.8);
       if (s.flash > 0) { ctx.fillStyle = `rgba(255,250,235,${s.flash * 0.55})`; ctx.fillRect(0, 0, W, H); }
       vignette(ctx, W, H, "250,240,200", 0.3, 0.95, 0, 0.3 + 0.2 * s.flash);
-      const cx = W / 2, cy = H * 0.42;
-      ctx.fillStyle = "#fff3b0";
-      for (let i = 0; i < 5; i++) {
-        const a = t * 2.4 + (i / 5) * TAU;
-        const x = cx + Math.cos(a) * W * 0.1, y = cy + Math.sin(a) * W * 0.033;
-        ctx.globalAlpha = 0.6 + 0.4 * Math.sin(a);
-        star4(ctx, x, y, W * 0.018 * (0.75 + 0.35 * Math.sin(a)));
+      const cx = W / 2, cy = H / 2, short = Math.min(W, H);
+      // a superellipse (exponent 4): close to the edges all the way round, with rounded corners
+      const along = (a, rx, ry) => {
+        const c = Math.cos(a), sn = Math.sin(a);
+        return [cx + rx * Math.sign(c) * Math.sqrt(Math.abs(c)), cy + ry * Math.sign(sn) * Math.sqrt(Math.abs(sn))];
+      };
+      for (const r of s.rings) {
+        const m = short * r.inset, rx = W / 2 - m, ry = H / 2 - m;
+        for (const st of r.stars) {
+          const a = st.a + t * r.speed * TAU * 0.25;
+          const bob = 1 + 0.012 * Math.sin(t * 2 + st.bob);
+          const [x, y] = along(a, rx * bob, ry * bob);
+          const tw = 0.55 + 0.45 * Math.sin(t * 5 + st.ph);
+          const size = W * r.size * (0.8 + 0.3 * tw);
+          if (r.glow) puff(ctx, x, y, size * 2.6, "255,240,170", 0.3 * tw);
+          ctx.globalAlpha = 0.45 + 0.55 * tw;
+          ctx.fillStyle = r.color;
+          star4(ctx, x, y, size);
+        }
       }
       ctx.globalAlpha = 1;
     }

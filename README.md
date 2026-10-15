@@ -30,7 +30,7 @@ https://github.com/dxcufgb/FoundryVTT-screen-effects/releases/latest/download/mo
 | Poisoned | Sickly green tint and edges, toxic vapour | Nauseous sway, bubbles drifting in |
 | Prone | The far side of the map darkens out of reach, dust at the bottom | Dust hanging in the air |
 | Restrained | Web strands across the corners | The strands tremble as you strain |
-| Stunned | White-gold edges, throbbing blur | White flashes, stars circling the middle |
+| Stunned | White-gold edges, throbbing blur | White flashes; four rings of stars of different sizes circle just inside the screen edges at different speeds and directions |
 | Unconscious | Heavy eyelids over a dim, blurred world | Eyelids flutter, faint dream lights drift past |
 | Dying (0 HP) | As unconscious, with a failing red heartbeat | Beats faster with each failed death save |
 | Dead | Eyes closed, black and grey | Still |
