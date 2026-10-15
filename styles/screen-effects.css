@@ -88,6 +88,20 @@
   height: 106%;
   transform-origin: 50% 50%;
 }
+/* A layer below full opacity would cut its backdrop filter off from the map behind it. So these
+   layers stay fully opaque (only their visibility switches, after the fade); the canvas fades
+   here, and the script ramps the map filter in step with it (see scaleFilter in main.js). */
+#dxse-overlay .dxse-canvas-layer,
+#dxse-overlay .dxse-canvas-layer.dxse-on {
+  opacity: 1;
+}
+#dxse-overlay .dxse-canvas-layer .dxse-canvas {
+  opacity: 0;
+  transition: opacity 0.9s ease;
+}
+#dxse-overlay .dxse-canvas-layer.dxse-on .dxse-canvas {
+  opacity: var(--dxse-master);
+}
 
 /* --------------------------------------------------------------------------
    Effects settings window

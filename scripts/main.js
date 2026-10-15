@@ -279,7 +279,10 @@ function refresh() {
     const c = state.canvases[e.id];
     if (c) {
       if (fx) {
-        if (!c.on) c.s = null;           // a fresh start each time it comes on
+        if (!c.on) {
+          c.s = null;                    // a fresh start each time it comes on
+          c.onAt = performance.now();
+        }
         c.fx = fx;
       } else if (c.on) c.offAt = performance.now();
       c.on = !!fx;
@@ -300,14 +303,51 @@ function resizeCanvases() {
   if (!rect?.width) return;
   const scale = Math.min(1, 1600 / rect.width);
   const W = Math.max(2, Math.round(rect.width * scale)), H = Math.max(2, Math.round(rect.height * scale));
+  let changed = false;
   for (const c of Object.values(state.canvases)) {
     if (c.W === W && c.H === H) continue;
     c.W = W; c.H = H;
     c.canvas.width = W; c.canvas.height = H;
     c.ctx = c.canvas.getContext("2d");
-    c.s = null;                          // overlays size their state to the screen
+    changed = true;
   }
-  if (Object.values(state.canvases).some(c => c.on)) paint(0);
+  if (!changed) return;
+  // The sidebar animating or the window being dragged resizes on many frames in a row: keep
+  // drawing the running overlays at the new size, and only rebuild them (their state is sized
+  // to the screen) once the size has settled.
+  clearTimeout(state.resizeTimer);
+  state.resizeTimer = setTimeout(() => {
+    for (const c of Object.values(state.canvases)) c.s = null;
+    if (Object.values(state.canvases).some(c => c.on)) paint(0);
+  }, 200);
+  if (Object.values(state.canvases).some(c => c.on && c.s)) paint(0);
+}
+
+/** Identity values of the CSS filter functions the overlays use (what "no effect" is for each). */
+const FILTER_IDENTITY = { blur: 0, brightness: 1, contrast: 1, saturate: 1, grayscale: 0, sepia: 0, "hue-rotate": 0, invert: 0, opacity: 1 };
+
+/**
+ * Scale a filter from no effect (k = 0) to full (k = 1), function by function.
+ * Backdrop filters can't simply be faded with opacity: an ancestor below full opacity cuts
+ * them off from the map behind, so the fade and the strength setting are applied here instead.
+ */
+function scaleFilter(filter, k) {
+  if (!filter || k >= 0.999) return filter;
+  if (k <= 0.001) return "";
+  return filter.replace(/([a-z-]+)\(\s*(-?[\d.]+)([a-z%]*)\s*\)/g, (m, fn, v, unit) => {
+    const id = FILTER_IDENTITY[fn];
+    if (id === undefined) return m;
+    const val = id + (parseFloat(v) - id) * k;
+    return `${fn}(${+val.toFixed(4)}${unit})`;
+  });
+}
+
+/** How far an overlay has faded in (0-1), times the strength setting. */
+function fadeOf(c, now) {
+  const master = Number(game.settings.get(MODULE_ID, "intensity")) || 1;
+  if (reducedMotion()) return c.on ? master : 0;
+  const k = c.on ? (now - (c.onAt ?? 0)) / FADE_MS : 1 - (now - c.offAt) / FADE_MS;
+  return Math.min(1, Math.max(0, k)) * master;
 }
 
 /** Is this overlay visible (on, or still fading out)? */
@@ -327,7 +367,7 @@ function paint(dt) {
         def.draw(c.ctx, c.W, c.H, state.time + i / 30, 1 / 30, c.s, c.fx);
       }
     }
-    const filter = def.filter?.(state.time, c.fx) ?? "";
+    const filter = scaleFilter(def.filter?.(state.time, c.fx) ?? "", fadeOf(c, now));
     c.filter.style.backdropFilter = filter;
     c.filter.style.webkitBackdropFilter = filter;
     c.canvas.style.transform = def.motion && dt > 0 ? def.motion(state.time, c.fx) : "";
