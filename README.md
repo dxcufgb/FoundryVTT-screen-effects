@@ -20,7 +20,7 @@ https://github.com/dxcufgb/FoundryVTT-screen-effects/releases/latest/download/mo
 | Blinded | Darkness swallows the screen; only a dim, blurred smear survives in the middle | Murk drifting through |
 | Charmed | Rosy haze at the edges, richer colours | Hearts drifting inward toward the charmer |
 | Deafened | Colour drains, slight blur | Broken sound rings spread out and die away |
-| Exhaustion | Greyer and darker with every level; from level 3 the eyelids sag shut now and then | Slow breathing, blinks more often at higher levels |
+| Exhaustion | Worse with every level: 1 darker edges and draining colour; 2 eyelids rest lowered; 3 they sag shut now and then; 4 the world blurs and sways; 5 blinks close almost fully; 6 barely conscious, almost black | Slower, heavier breathing; blinks come more often and take longer to recover from at each level |
 | Frightened | Red and black edges, dark tendrils reaching in | Heartbeat throb, the view jolts with each beat |
 | Grappled | Shadowy fingers gripping both sides of the screen | Slow squeezes |
 | Incapacitated | Grey, blurred, dazed | Faint spiral arms turning |

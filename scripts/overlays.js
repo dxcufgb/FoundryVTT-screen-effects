@@ -86,6 +86,11 @@ function lids(ctx, W, H, close, soft = 0.18) {
   }
 }
 
+/** The exhaustion level shown (1 = first); from fx.step, or worked out from fx.level on a 6-level scale. */
+function exhaustionStep(fx) {
+  return Number(fx.step) || Math.max(1, Math.round((fx.level ?? 1) * 6));
+}
+
 /** Advance and draw a list of particles; `step(p)` returns false to remove one. */
 function run(list, step) {
   let k = 0;
@@ -164,22 +169,46 @@ export const OVERLAYS = {
     }
   },
 
-  // Heavier and darker with every level; from level 3 the eyelids sag shut now and then.
+  // Worse with every level (fx.level = level / max level, fx.step = the level):
+  //   1  the edges darken and the colour starts to drain, breathing slowly
+  //   2  + the eyelids rest a little lowered
+  //   3  + they sag shut now and then and take a while to open again
+  //   4  + the world blurs and the view sways as you stagger
+  //   5  + blinks come often, close almost fully and reopen slowly
+  //   6  (the last level) barely conscious: eyes nearly shut, almost black
   exhaustion: {
-    filter: (t, fx) => `saturate(${(1 - 0.5 * fx.level).toFixed(2)}) brightness(${(1 - 0.22 * fx.level + 0.04 * Math.sin(t * 1.2)).toFixed(3)})`,
-    init: () => ({ blink: 3, phase: 0 }),
+    filter: (t, fx) => {
+      const lvl = fx.level ?? 1, step = exhaustionStep(fx);
+      const blur = step >= 4 ? (0.6 + 2.2 * (lvl - 0.5)) * (0.85 + 0.15 * Math.sin(t * 0.9)) : 0;
+      return `saturate(${(1 - 0.65 * lvl).toFixed(2)}) brightness(${(1 - 0.38 * lvl + 0.04 * Math.sin(t * 1.2)).toFixed(3)})`
+        + ` contrast(${(1 - 0.12 * lvl).toFixed(2)})` + (blur > 0 ? ` blur(${blur.toFixed(2)}px)` : "");
+    },
+    motion: (t, fx) => {
+      if (exhaustionStep(fx) < 4) return "";
+      const a = fx.level ?? 1;   // a slow, heavy stagger
+      return `translate(${(Math.sin(t * 0.45) * 0.5 * a).toFixed(2)}%, ${(Math.sin(t * 0.7 + 1) * 0.3 * a).toFixed(2)}%) rotate(${(Math.sin(t * 0.38) * 0.6 * a).toFixed(2)}deg)`;
+    },
+    init: () => ({ blink: 2, phase: 0, length: 2 }),
     draw(ctx, W, H, t, dt, s, fx) {
-      const lvl = fx.level ?? 1, step = Number(fx.step) || Math.round(lvl * 6);
-      const breath = 0.5 + 0.5 * Math.sin(t * (1.6 - 0.5 * lvl));
-      vignette(ctx, W, H, "10,8,6", 0.2, 0.85, 0, (0.25 + 0.4 * lvl) + 0.2 * lvl * breath);
-      let close = step >= 3 ? 0.03 + 0.06 * lvl * breath : 0;
+      const lvl = fx.level ?? 1, step = exhaustionStep(fx);
+      const breath = 0.5 + 0.5 * Math.sin(t * (1.5 - 0.7 * lvl));     // slower, heavier breathing
+      vignette(ctx, W, H, "10,8,6", 0.35 - 0.3 * lvl, 0.85, 0, 0.2 + 0.6 * lvl + 0.15 * lvl * breath);
+      // Eyelids: resting droop from level 2, then blinks from level 3
+      let close = step >= 2 ? (lvl - 0.2) * 0.32 + 0.05 * lvl * breath : 0;
+      if (lvl >= 0.999) close = Math.max(close, 0.62 + 0.05 * breath);   // the last level
       if (step >= 3) {
         s.blink -= dt;
         if (s.blink < 0) {
           s.phase += dt;
-          const k = s.phase / 2.4;
-          close += (0.3 + 0.35 * lvl) * Math.sin(Math.min(1, k) * Math.PI);
-          if (k >= 1) { s.blink = rand(7, 10) - 5 * lvl; s.phase = 0; }
+          const k = Math.min(1, s.phase / s.length);
+          // close quickly, reopen slowly: the struggle to keep the eyes open
+          const shape = k < 0.3 ? Math.sin((k / 0.3) * Math.PI / 2) : Math.cos(((k - 0.3) / 0.7) * Math.PI / 2);
+          close += (0.2 + 0.7 * lvl) * shape * (1 - close);
+          if (k >= 1) {
+            s.phase = 0;
+            s.length = 1.4 + 3 * lvl;                    // longer to recover at higher levels
+            s.blink = rand(5, 8) * (1.45 - lvl);         // and more often
+          }
         }
       }
       if (close > 0) lids(ctx, W, H, close);
