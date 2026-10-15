@@ -1,6 +1,6 @@
 # Dxcufgb's screen effects
 
-Full-screen effects on a player's own screen while their character suffers a condition: the world turns red and throbs at low HP, goes green and queasy when poisoned, rosy with drifting hearts when charmed, grey and heavy-lidded with exhaustion, and fades to black when they drop.
+Animated full-screen effects on a player's own screen while their character suffers a condition, one for every D&D 5e and 2024 condition: the world turns red and throbs at low HP, goes green and queasy when poisoned, rosy with drifting hearts when charmed, cracks into stone when petrified, and fades to black when they drop.
 
 **Foundry VTT:** v13 · **System:** made for dnd5e (tested with 5.2.5); conditions from any system that uses Foundry's status effects work too.
 
@@ -17,25 +17,30 @@ https://github.com/dxcufgb/FoundryVTT-screen-effects/releases/latest/download/mo
 | Condition | On screen | Moves |
 | --- | --- | --- |
 | Low HP | Red vignette and draining colour, stronger the lower the HP | Heartbeat, faster as HP drops |
-| Poisoned | Sickly green edges, queasy haze, bubbles | Slow nauseous sway |
-| Charmed | Rosy glow, hearts drifting up the edges | Gentle breathing |
-| Stunned | White-gold ringing edges, dazed blur, circling stars | Flashes and wobble |
-| Frightened | Darkness and grasping shadows creeping in | Pulsing dread, slight tremor |
-| Paralyzed | Icy edges, drained colour, frost crystals | Static |
-| Petrified | Stone creeping in from the edges, cracks, grey world | Static |
-| Invisible | Faint shimmer, as if seen through yourself | Slow shimmer |
-| Restrained | Dark edges squeezing in, rope frame | Squeezing |
-| Grappled | Dark edges squeezing in | Squeezing |
-| Exhaustion | Greyer and darker with every level; from level 3 the eyelids start drooping | Blinks more often at higher levels |
-| Unconscious | The world fades to black and blurs | Slow breathing |
-| Dying (0 HP) | Black with a faint red heartbeat | Beats faster with each failed death save |
-| Dead | Black and grey | Static |
+| Blinded | Darkness swallows the screen; only a dim, blurred smear survives in the middle | Murk drifting through |
+| Charmed | Rosy haze at the edges, richer colours | Hearts drifting inward toward the charmer |
+| Deafened | Colour drains, slight blur | Broken sound rings spread out and die away |
+| Exhaustion | Greyer and darker with every level; from level 3 the eyelids sag shut now and then | Slow breathing, blinks more often at higher levels |
+| Frightened | Red and black edges, dark tendrils reaching in | Heartbeat throb, the view jolts with each beat |
+| Grappled | Shadowy fingers gripping both sides of the screen | Slow squeezes |
+| Incapacitated | Grey, blurred, dazed | Faint spiral arms turning |
+| Invisible | Cool, glassy shimmer, glints at the edges | Rippling heat-haze bands |
+| Paralyzed | A great rune circle locked over the screen, drained colour | Violet crackles snap at the edges |
+| Petrified | Cracked stone creeping in from every edge, grey world | The stone grinds forward and back, grit falls |
+| Poisoned | Sickly green tint and edges, toxic vapour | Nauseous sway, bubbles drifting in |
+| Prone | The far side of the map darkens out of reach, dust at the bottom | Dust hanging in the air |
+| Restrained | Web strands across the corners | The strands tremble as you strain |
+| Stunned | White-gold edges, throbbing blur | White flashes, stars circling the middle |
+| Unconscious | Heavy eyelids over a dim, blurred world | Eyelids flutter, faint dream lights drift past |
+| Dying (0 HP) | As unconscious, with a failing red heartbeat | Beats faster with each failed death save |
+| Dead | Eyes closed, black and grey | Still |
 
 - Effects combine (for example poisoned at low HP).
 - **Whose effects:** the token you have selected. With several selected, the one you selected last. With none selected, your assigned character. Only tokens you own count.
 - The GM sees no effects unless they turn on **Show effects to the GM** (then for the token the GM selects).
 - The effects sit over the game canvas and under Foundry's windows, stop at the sidebar, and never block clicks.
-- Pure CSS (plus a few small inline SVG shapes drawn for this module): no images to download.
+- Made for a top-down map: effects close in from the screen edges or lie flat over the map, and Foundry's own canvas is never moved, so clicking, dragging and measuring work as normal.
+- Drawn in code (CSS for Low HP, animated 2D canvases for the conditions): no images to download. With **Reduce motion** each effect shows as a still frame.
 
 ## Settings
 
@@ -56,7 +61,7 @@ api.refresh();                   // re-check the conditions
 
 ## License
 
-[MIT](LICENSE). All effects are drawn with CSS and inline SVG written for this module; no third-party assets.
+[MIT](LICENSE). All effects are drawn with CSS and canvas code written for this module; no third-party assets.
 
 ## Releasing
 

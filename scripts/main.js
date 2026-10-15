@@ -1,22 +1,26 @@
 /**
  * Dxcufgb's screen effects (dxcufgbs-screen-effects) - Foundry VTT V13
  *
- * Shows a full-screen effect (coloured vignette, haze, blur, ...) on a player's own
- * screen while their character suffers a condition: low HP, poisoned, charmed, stunned,
- * frightened, paralyzed, petrified, invisible, restrained/grappled, exhaustion (gradual)
- * and unconscious/dying/dead.
+ * Shows a full-screen effect on a player's own screen while their character suffers a
+ * condition: every D&D 5e / 2024 condition (blinded, charmed, deafened, exhaustion by level,
+ * frightened, grappled, incapacitated, invisible, paralyzed, petrified, poisoned, prone,
+ * restrained, stunned, unconscious/dying/dead) plus low HP.
  *
  * Whose conditions: the token the player controls (the most recently selected one when
  * several are selected), otherwise the player's assigned character. GMs see nothing unless
  * they turn on "Show effects to the GM".
  *
- * The effects are pure CSS layers placed over the game canvas and under Foundry's UI,
- * so they cover the play area (up to the sidebar) but never block clicks.
+ * The effects are layers placed over the game canvas and under Foundry's UI, so they cover
+ * the play area (up to the sidebar) but never block clicks. Low HP is pure CSS; the conditions
+ * are animated 2D canvases (scripts/overlays.js) with a backdrop filter on the map behind them.
+ * Foundry's own canvas is never transformed, so the map keeps working normally.
  *
  * API: game.modules.get("dxcufgbs-screen-effects").api
  *   .preview("poisoned", 4000)    show an effect for a few seconds
  *   .refresh()                    re-check the conditions
  */
+
+import { OVERLAYS } from "./overlays.js";
 
 export const MODULE_ID = "dxcufgbs-screen-effects";
 
@@ -25,15 +29,23 @@ export const EFFECTS = [
   { id: "exhaustion", label: "DXSE.Effect.Exhaustion" },
   { id: "poisoned", label: "DXSE.Effect.Poisoned", statuses: ["poisoned"] },
   { id: "charmed", label: "DXSE.Effect.Charmed", statuses: ["charmed"] },
+  { id: "deafened", label: "DXSE.Effect.Deafened", statuses: ["deafened"] },
   { id: "invisible", label: "DXSE.Effect.Invisible", statuses: ["invisible"] },
-  { id: "restrained", label: "DXSE.Effect.Restrained", statuses: ["restrained", "grappled"] },
+  { id: "prone", label: "DXSE.Effect.Prone", statuses: ["prone"] },
+  { id: "grappled", label: "DXSE.Effect.Grappled", statuses: ["grappled"] },
+  { id: "restrained", label: "DXSE.Effect.Restrained", statuses: ["restrained"] },
   { id: "frightened", label: "DXSE.Effect.Frightened", statuses: ["frightened"] },
+  { id: "incapacitated", label: "DXSE.Effect.Incapacitated", statuses: ["incapacitated"] },
   { id: "paralyzed", label: "DXSE.Effect.Paralyzed", statuses: ["paralyzed"] },
   { id: "petrified", label: "DXSE.Effect.Petrified", statuses: ["petrified"] },
   { id: "stunned", label: "DXSE.Effect.Stunned", statuses: ["stunned"] },
+  { id: "blinded", label: "DXSE.Effect.Blinded", statuses: ["blinded"] },
   { id: "lowhp", label: "DXSE.Effect.LowHp" },
   { id: "unconscious", label: "DXSE.Effect.Unconscious", statuses: ["unconscious", "dead"] }
 ];
+
+/** How long a layer keeps animating after it is turned off (its fade-out, see the CSS). */
+const FADE_MS = 1000;
 
 const state = {
   overlay: null,
@@ -41,7 +53,11 @@ const state = {
   lastControlled: null,
   previews: new Map(),      // effect id -> {until, timer}
   timer: null,
-  sidebarObserver: null
+  sidebarObserver: null,
+  canvases: {},             // effect id -> {canvas, ctx, filter, W, H, s, fx, offAt}
+  frame: null,              // requestAnimationFrame id while anything animates
+  last: 0,
+  time: 0
 };
 
 /* -------------------------------------------- */
@@ -101,7 +117,17 @@ function buildOverlay() {
   for (const e of EFFECTS) {
     const layer = document.createElement("div");
     layer.className = `dxse-layer dxse-${e.id}`;
-    layer.innerHTML = `<div class="dxse-fx"></div><div class="dxse-fx2"></div><div class="dxse-fx3"></div>`;
+    if (OVERLAYS[e.id]) {
+      // An animated overlay: a backdrop filter for the map behind it, and the canvas it is drawn on.
+      layer.classList.add("dxse-canvas-layer");
+      layer.innerHTML = `<div class="dxse-filter"></div><canvas class="dxse-canvas"></canvas>`;
+      state.canvases[e.id] = {
+        canvas: layer.querySelector("canvas"), filter: layer.querySelector(".dxse-filter"),
+        ctx: null, W: 0, H: 0, s: null, fx: { level: 1 }, offAt: 0, on: false
+      };
+    } else {
+      layer.innerHTML = `<div class="dxse-fx"></div><div class="dxse-fx2"></div><div class="dxse-fx3"></div>`;
+    }
     overlay.appendChild(layer);
     state.layers[e.id] = layer;
   }
@@ -128,6 +154,7 @@ function watchSidebar() {
     const sidebar = document.getElementById("sidebar");
     const width = sidebar ? sidebar.getBoundingClientRect().width : 0;
     state.overlay?.style.setProperty("--dxse-sidebar", `${Math.max(0, Math.round(width))}px`);
+    resizeCanvases();
   };
   apply();
   const sidebar = document.getElementById("sidebar");
@@ -249,15 +276,95 @@ function refresh() {
       layer.dataset.variant = fx.variant ?? "";
       layer.dataset.step = fx.step ?? "";
     }
+    const c = state.canvases[e.id];
+    if (c) {
+      if (fx) {
+        if (!c.on) c.s = null;           // a fresh start each time it comes on
+        c.fx = fx;
+      } else if (c.on) c.offAt = performance.now();
+      c.on = !!fx;
+    }
   }
+  animate();
+}
+
+/* -------------------------------------------- */
+/*  Animated overlays                           */
+/* -------------------------------------------- */
+
+const reducedMotion = () => !!game.settings.get(MODULE_ID, "calm") || matchMedia("(prefers-reduced-motion: reduce)").matches;
+
+/** Size the canvases to the overlay. Drawn below full resolution on big screens: the effects are soft. */
+function resizeCanvases() {
+  const rect = state.overlay?.getBoundingClientRect();
+  if (!rect?.width) return;
+  const scale = Math.min(1, 1600 / rect.width);
+  const W = Math.max(2, Math.round(rect.width * scale)), H = Math.max(2, Math.round(rect.height * scale));
+  for (const c of Object.values(state.canvases)) {
+    if (c.W === W && c.H === H) continue;
+    c.W = W; c.H = H;
+    c.canvas.width = W; c.canvas.height = H;
+    c.ctx = c.canvas.getContext("2d");
+    c.s = null;                          // overlays size their state to the screen
+  }
+  if (Object.values(state.canvases).some(c => c.on)) paint(0);
+}
+
+/** Is this overlay visible (on, or still fading out)? */
+const showing = (c, now) => c.on || now - c.offAt < FADE_MS;
+
+/** Draw one frame of every visible overlay. */
+function paint(dt) {
+  const now = performance.now();
+  for (const [id, c] of Object.entries(state.canvases)) {
+    if (!showing(c, now) || !c.ctx) continue;
+    const def = OVERLAYS[id];
+    if (!c.s) {
+      c.s = def.init ? def.init(c.W, c.H, c.fx) : {};
+      // Warm up so particles are already spread out when it appears (and when motion is reduced).
+      for (let i = 0; i < 90; i++) {
+        c.ctx.clearRect(0, 0, c.W, c.H);
+        def.draw(c.ctx, c.W, c.H, state.time + i / 30, 1 / 30, c.s, c.fx);
+      }
+    }
+    const filter = def.filter?.(state.time, c.fx) ?? "";
+    c.filter.style.backdropFilter = filter;
+    c.filter.style.webkitBackdropFilter = filter;
+    c.canvas.style.transform = def.motion && dt > 0 ? def.motion(state.time, c.fx) : "";
+    c.ctx.clearRect(0, 0, c.W, c.H);
+    def.draw(c.ctx, c.W, c.H, state.time, dt, c.s, c.fx);
+  }
+}
+
+/** Run the animation while any overlay is visible; with reduced motion, draw one still frame. */
+function animate() {
+  if (!state.overlay) return;
+  if (!state.canvases || !Object.keys(state.canvases).length) return;
+  if (!Object.values(state.canvases).some(c => c.ctx)) resizeCanvases();
+  if (reducedMotion()) {
+    if (state.frame) cancelAnimationFrame(state.frame);
+    state.frame = null;
+    paint(0);
+    return;
+  }
+  if (state.frame) return;
+  state.last = performance.now();
+  const step = now => {
+    const dt = Math.min(0.05, (now - state.last) / 1000);
+    state.last = now;
+    state.time += dt;
+    paint(dt);
+    const any = Object.values(state.canvases).some(c => showing(c, now));
+    state.frame = any && !reducedMotion() ? requestAnimationFrame(step) : null;
+  };
+  state.frame = requestAnimationFrame(step);
 }
 
 /** How previews look for effects that have levels or variants. */
 const PREVIEW_LOOK = {
   lowhp: { level: 0.7 },
   exhaustion: { level: 4 / 6, step: 4 },
-  unconscious: { level: 0.75, variant: "dying" },
-  restrained: { level: 1, variant: "restrained" }
+  unconscious: { level: 0.75, variant: "dying" }
 };
 
 /** Show an effect for a while, whatever the conditions (for trying them out). */
