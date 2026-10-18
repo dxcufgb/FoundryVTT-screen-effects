@@ -100,6 +100,14 @@ Hooks.once("init", () => {
   if (mod) mod.api = { preview, refresh: () => scheduleRefresh(), effects: EFFECTS.map(e => e.id) };
 });
 
+// The GM setting only matters to the GM, so hide it from everyone else.
+// The current user is not known yet at "init", so this is done when the settings window opens.
+Hooks.on("renderSettingsConfig", (app, html) => {
+  if (game.user.isGM) return;
+  const root = html instanceof HTMLElement ? html : html?.[0];
+  root?.querySelector(`[name="${MODULE_ID}.gm"]`)?.closest(".form-group")?.remove();
+});
+
 Hooks.once("ready", () => {
   buildOverlay();
   scheduleRefresh();
