@@ -1,0 +1,20 @@
+# CodeRabbit settings for FoundryVTT-screen-effects.
+# Shared rules come from the central dxcufgb/coderabbit repository (inheritance: true), and CodeRabbit reads
+# the README as code guidelines. Only what is specific to this repository is here.
+# Check the merged result on a pull request with: @coderabbitai configuration
+inheritance: true
+
+reviews:
+  path_instructions:
+    - path: "scripts/**/*.js"
+      instructions: |
+        Full-screen effects on a player's own screen while their character has a condition. They must respect
+        each user's settings (on/off, "intensity", "Reduce motion" = `calm`, which also follows the OS
+        prefers-reduced-motion) for every effect, never flash fast enough
+        to be a photosensitivity risk, and never block clicks on the canvas or the UI. Effects are removed when
+        the condition ends, the character changes, or the scene changes.
+    - path: ".github/workflows/{ci,release}.yml"
+      instructions: |
+        Thin callers of dxcufgb/foundry-module-ci, identical in every Foundry module repository. Flag any change
+        here that is not the same change in all modules (it belongs in foundry-module-ci instead), except the
+        pinned SHA of foundry-module-ci itself.
