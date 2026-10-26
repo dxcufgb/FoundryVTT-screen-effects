@@ -6,6 +6,8 @@
 [![CI](https://img.shields.io/github/actions/workflow/status/dxcufgb/FoundryVTT-screen-effects/ci.yml?branch=main&label=CI)](https://github.com/dxcufgb/FoundryVTT-screen-effects/actions/workflows/ci.yml)
 [![License](https://img.shields.io/github/license/dxcufgb/FoundryVTT-screen-effects)](LICENSE)
 
+<a href="https://dxcufgb.github.io/FVTT-dev-showcase/"><img src="https://dxcufgb.github.io/FVTT-dev-showcase/assets/img/workshop-badge.png" alt="Dxcufgb's Workshop: every Foundry VTT project, video and changelog in one place" width="650"></a>
+
 Animated full-screen effects on a player's own screen while their character suffers a condition, one for every D&D 5e and 2024 condition: the world turns red and throbs at low HP, goes green and queasy when poisoned, rosy with drifting hearts when charmed, cracks into stone when petrified, and fades to black when they drop.
 
 **Foundry VTT:** v13 · **System:** made for dnd5e (tested with 5.2.5); conditions from any system that uses Foundry's status effects work too.
