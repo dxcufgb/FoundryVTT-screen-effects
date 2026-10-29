@@ -56,7 +56,7 @@ https://github.com/dxcufgb/FoundryVTT-screen-effects/releases/latest/download/mo
 - **Effect strength** (per user)
 - **Reduce motion** (per user): the effects stay still. The system's reduced-motion setting is followed too.
 - **Low HP threshold (%)** (world): 25% by default.
-- **Show effects to the GM** (per user): off by default.
+- **Show effects to the GM** (per user): off by default. Only GMs see this setting.
 - **Choose effects** (per user): turn single effects on or off and preview each one.
 
 ## API
@@ -65,7 +65,27 @@ https://github.com/dxcufgb/FoundryVTT-screen-effects/releases/latest/download/mo
 const api = game.modules.get("dxcufgbs-screen-effects").api;
 api.preview("poisoned", 4000);   // show an effect for 4 seconds
 api.refresh();                   // re-check the conditions
+api.effects;                     // the effect ids, in stacking order: "exhaustion", "poisoned", … "lowhp", "unconscious"
 ```
+
+Everything happens on the screen of the client that calls it; nothing is sent to other players. Any user may call it.
+
+- `preview(id, ms = 4000)` shows an effect on your own screen for `ms` milliseconds, whatever the conditions, even when it is turned off in **Choose effects** or **Show screen effects** is off. Ids not in `api.effects` are ignored. Exhaustion previews at level 4 and Unconscious as dying.
+- `refresh()` re-checks the conditions (of the token whose effects you see) a moment later. The module already does this when tokens, actors, active effects, users, the scene or its settings change, so you only need it after a change it can't see.
+
+**From another module**
+
+The API is set during `init`. The effects are placed on screen at `ready`, so call `preview` from `ready` on. The module calls no hooks of its own and stores no flags. Make the integration optional:
+
+```js
+Hooks.once("ready", () => {
+  const api = game.modules.get("dxcufgbs-screen-effects")?.active ? game.modules.get("dxcufgbs-screen-effects").api : null;
+  if (!api) return;   // Dxcufgb's screen effects not installed or not enabled
+  api.preview("stunned", 2000);
+});
+```
+
+Add `{ "id": "dxcufgbs-screen-effects", "type": "module" }` to `relationships.recommends` in your `module.json`.
 
 ## License
 
