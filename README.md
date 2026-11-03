@@ -30,10 +30,6 @@ The full guide is in the [wiki](https://github.com/dxcufgb/FoundryVTT-screen-eff
 - [Settings](https://github.com/dxcufgb/FoundryVTT-screen-effects/wiki/Settings): strength, reduced motion, low HP threshold, single effects
 - [API](https://github.com/dxcufgb/FoundryVTT-screen-effects/wiki/API): for macro and module authors
 
-## Releasing
-
-For the maintainer: **Actions → Release module → Run workflow**, type the version (for example `1.2.3`) and run it. The module is checked and packaged first; only then is the release `v1.2.3` published with `module.json` and `module.zip`. CI and releases come from [dxcufgb/foundry-module-ci](https://github.com/dxcufgb/foundry-module-ci), the same for every module.
-
 ## License
 
 [MIT](LICENSE). All effects are drawn with CSS and canvas code written for this module; no third-party assets.
