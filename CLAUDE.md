@@ -34,8 +34,8 @@ drawn in code (CSS and 2D canvas), no images. No build step and no npm dependenc
 ## Conventions
 - `MODULE_ID` must equal `id` in `module.json`; CI checks it.
 - Every visible setting and the settings menu need a Name and Hint in `lang/en.json`; CI checks it. A new effect
-  needs an `EFFECTS` entry, a `DXSE.Effect.*` label and a README table row.
-- Update `README.md` when effects, behaviour or settings change.
+  needs an `EFFECTS` entry, a `DXSE.Effect.*` label and a row in the table on the wiki's Effects page.
+- Update the wiki (not `README.md`, which only has the install steps and links to the wiki) when effects, behaviour or settings change.
 
 ## Review focus
 - **Reduce motion and strength apply to every effect**: a new overlay must keep all movement in `draw` driven by
