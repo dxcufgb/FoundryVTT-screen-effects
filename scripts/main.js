@@ -451,7 +451,8 @@ function animate() {
     state.last = now;
     state.time += dt;
     paint(dt);
-    const showingNow = Object.values(state.canvases).filter(c => showing(c, now)).length;
+    let showingNow = 0;   // counted without allocating: this runs every frame
+    for (const id in state.canvases) if (showing(state.canvases[id], now)) showingNow++;
     const any = showingNow > 0;
     // The loop counts as started on the first frame that has something showing (an overlay can come on after
     // the frame was scheduled), and as stopped when it ends after that
