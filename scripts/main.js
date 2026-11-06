@@ -435,8 +435,9 @@ function animate() {
   if (!state.canvases || !Object.keys(state.canvases).length) return;
   if (!Object.values(state.canvases).some(c => c.ctx)) resizeCanvases();
   if (reducedMotion()) {
-    if (state.frame) {
-      cancelAnimationFrame(state.frame);
+    if (state.frame) cancelAnimationFrame(state.frame);
+    if (state.debug.loopCrumb) {
+      state.debug.loopCrumb = false;
       crumb("loop.stop", { reason: "reducedMotion" });
     }
     state.frame = null;
@@ -444,19 +445,21 @@ function animate() {
     return;
   }
   if (state.frame) return;
-  const showingNow = Object.values(state.canvases).filter(c => showing(c, performance.now())).length;
-  state.debug.loopCrumb = showingNow > 0;
-  if (showingNow) {
-    state.debug.loopStarts++;
-    crumb("loop.start", { showing: showingNow });
-  }
   state.last = performance.now();
   const step = now => {
     const dt = Math.min(0.05, (now - state.last) / 1000);
     state.last = now;
     state.time += dt;
     paint(dt);
-    const any = Object.values(state.canvases).some(c => showing(c, now));
+    const showingNow = Object.values(state.canvases).filter(c => showing(c, now)).length;
+    const any = showingNow > 0;
+    // The loop counts as started on the first frame that has something showing (an overlay can come on after
+    // the frame was scheduled), and as stopped when it ends after that
+    if (any && !state.debug.loopCrumb) {
+      state.debug.loopCrumb = true;
+      state.debug.loopStarts++;
+      crumb("loop.start", { showing: showingNow });
+    }
     state.frame = any && !reducedMotion() ? requestAnimationFrame(step) : null;
     if (!state.frame && state.debug.loopCrumb) {
       state.debug.loopCrumb = false;
