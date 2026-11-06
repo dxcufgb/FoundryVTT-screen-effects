@@ -21,6 +21,7 @@
  */
 
 import { OVERLAYS } from "./overlays.js";
+import { registerDebugRecorder, crumb } from "./debug-recorder.js";
 
 export const MODULE_ID = "dxcufgbs-screen-effects";
 
@@ -57,7 +58,9 @@ const state = {
   canvases: {},             // effect id -> {canvas, ctx, filter, W, H, s, fx, offAt}
   frame: null,              // requestAnimationFrame id while anything animates
   last: 0,
-  time: 0
+  time: 0,
+  // For the debug recorder (scripts/debug-recorder.js): counts and this module's own ids only
+  debug: { refreshes: 0, watchSource: "none", watchKey: null, activeKey: "", loopStarts: 0, loopCrumb: false, rebuilds: 0, placement: null }
 };
 
 /* -------------------------------------------- */
@@ -98,6 +101,7 @@ Hooks.once("init", () => {
 
   const mod = game.modules.get(MODULE_ID);
   if (mod) mod.api = { preview, refresh: () => scheduleRefresh(), effects: EFFECTS.map(e => e.id) };
+  registerDebugRecorder(debugSnapshot);
 });
 
 // The GM setting only matters to the GM, so hide it from everyone else.
@@ -111,6 +115,7 @@ Hooks.on("renderSettingsConfig", (app, html) => {
 Hooks.once("ready", () => {
   buildOverlay();
   scheduleRefresh();
+  registerDebugRecorder(debugSnapshot);
 });
 
 /* -------------------------------------------- */
@@ -141,14 +146,18 @@ function buildOverlay() {
   }
   // Right after the game canvas, so it covers the play area but stays under the UI.
   const board = document.getElementById("board");
+  let zIndexCopied = false;
   if (board?.parentElement) {
     board.after(overlay);
     const z = parseInt(getComputedStyle(board).zIndex, 10);
     if (Number.isFinite(z)) overlay.style.zIndex = String(z);
+    zIndexCopied = Number.isFinite(z);
   } else {
     document.body.prepend(overlay);
   }
   state.overlay = overlay;
+  state.debug.placement = board?.parentElement ? "afterBoard" : "body";
+  crumb("overlay.build", { placement: state.debug.placement, zIndexCopied, layers: EFFECTS.length, canvases: Object.keys(state.canvases).length });
   watchSidebar();
 }
 
@@ -185,19 +194,22 @@ function watchSidebar() {
 
 /** The actor whose conditions this user sees, or null. */
 export function watchedActor() {
-  if (game.user.isGM && !game.settings.get(MODULE_ID, "gm")) return null;
+  const watch = source => { state.debug.watchSource = source; };
+  if (game.user.isGM && !game.settings.get(MODULE_ID, "gm")) { watch("gmOff"); return null; }
   const owned = t => t && !t.destroyed && t.actor?.isOwner;
   const controlled = canvas?.tokens?.controlled ?? [];
   if (controlled.length) {
-    if (controlled.includes(state.lastControlled) && owned(state.lastControlled)) return state.lastControlled.actor;
+    if (controlled.includes(state.lastControlled) && owned(state.lastControlled)) { watch("lastControlled"); return state.lastControlled.actor; }
     const t = controlled.findLast?.(owned) ?? [...controlled].reverse().find(owned);
-    if (t) return t.actor;
+    if (t) { watch("controlled"); return t.actor; }
   }
   if (!game.user.isGM && game.user.character) {
     // Prefer the character's token on this scene (unlinked tokens carry their own conditions).
     const tokens = game.user.character.getActiveTokens?.() ?? [];
+    watch(tokens[0]?.actor ? "characterToken" : "character");
     return tokens[0]?.actor ?? game.user.character;
   }
+  watch("none");
   return null;
 }
 
@@ -272,8 +284,12 @@ function refresh() {
   const disabled = new Set(game.settings.get(MODULE_ID, "disabled") ?? []);
   overlay.style.setProperty("--dxse-master", String(game.settings.get(MODULE_ID, "intensity")));
   overlay.classList.toggle("dxse-calm", !!game.settings.get(MODULE_ID, "calm"));
+  state.debug.refreshes++;
 
-  const active = enabled ? effectsFor(watchedActor()) : {};
+  const actor = enabled ? watchedActor() : null;
+  if (!enabled) state.debug.watchSource = "disabled";
+  noteWatched(actor);
+  const active = enabled ? effectsFor(actor) : {};
   for (const [id, p] of state.previews) {
     if (p.until > Date.now()) active[id] = active[id] ?? PREVIEW_LOOK[id] ?? { level: 1 };
   }
@@ -298,7 +314,32 @@ function refresh() {
       c.on = !!fx;
     }
   }
+  noteShown();
   animate();
+}
+
+/** Breadcrumb when the watched actor changes (its document type and whether it is a token's own actor, no names). */
+function noteWatched(actor) {
+  const key = actor ? `${state.debug.watchSource}|${actor.uuid ?? ""}` : state.debug.watchSource;
+  if (key === state.debug.watchKey) return;
+  state.debug.watchKey = key;
+  crumb("actor.watch", { source: state.debug.watchSource, found: !!actor, type: actor?.type ?? null, tokenActor: !!actor?.isToken });
+}
+
+/** Breadcrumb when the set of shown effects changes. */
+function noteShown() {
+  const on = EFFECTS.filter(e => state.layers[e.id]?.classList.contains("dxse-on")).map(e => e.id);
+  const key = on.join(",");
+  if (key === state.debug.activeKey) return;
+  const before = new Set(state.debug.activeKey ? state.debug.activeKey.split(",") : []);
+  state.debug.activeKey = key;
+  crumb("effects.change", {
+    on: key,
+    added: on.filter(id => !before.has(id)).join(","),
+    removed: [...before].filter(id => !on.includes(id)).join(","),
+    count: on.length,
+    previews: state.previews.size
+  });
 }
 
 /* -------------------------------------------- */
@@ -327,6 +368,8 @@ function resizeCanvases() {
   // to the screen) once the size has settled.
   clearTimeout(state.resizeTimer);
   state.resizeTimer = setTimeout(() => {
+    state.debug.rebuilds++;
+    crumb("canvas.resize", { W, H, scale: +scale.toFixed(3), running: Object.values(state.canvases).filter(c => c.on).length });
     for (const c of Object.values(state.canvases)) c.s = null;
     if (Object.values(state.canvases).some(c => c.on)) paint(0);
   }, 200);
@@ -393,6 +436,10 @@ function animate() {
   if (!Object.values(state.canvases).some(c => c.ctx)) resizeCanvases();
   if (reducedMotion()) {
     if (state.frame) cancelAnimationFrame(state.frame);
+    if (state.debug.loopCrumb) {
+      state.debug.loopCrumb = false;
+      crumb("loop.stop", { reason: "reducedMotion" });
+    }
     state.frame = null;
     paint(0);
     return;
@@ -404,8 +451,21 @@ function animate() {
     state.last = now;
     state.time += dt;
     paint(dt);
-    const any = Object.values(state.canvases).some(c => showing(c, now));
+    let showingNow = 0;   // counted without allocating: this runs every frame
+    for (const id in state.canvases) if (showing(state.canvases[id], now)) showingNow++;
+    const any = showingNow > 0;
+    // The loop counts as started on the first frame that has something showing (an overlay can come on after
+    // the frame was scheduled), and as stopped when it ends after that
+    if (any && !state.debug.loopCrumb) {
+      state.debug.loopCrumb = true;
+      state.debug.loopStarts++;
+      crumb("loop.start", { showing: showingNow });
+    }
     state.frame = any && !reducedMotion() ? requestAnimationFrame(step) : null;
+    if (!state.frame && state.debug.loopCrumb) {
+      state.debug.loopCrumb = false;
+      crumb("loop.stop", { reason: any ? "reducedMotion" : "idle" });
+    }
   };
   state.frame = requestAnimationFrame(step);
 }
@@ -419,7 +479,11 @@ const PREVIEW_LOOK = {
 
 /** Show an effect for a while, whatever the conditions (for trying them out). */
 export function preview(id, ms = 4000) {
-  if (!EFFECTS.some(e => e.id === id)) return;
+  if (!EFFECTS.some(e => e.id === id)) {
+    crumb("preview.fallback", { reason: "unknownEffect" });
+    return;
+  }
+  crumb("preview.start", { effect: id, ms: Number(ms) || 0, disabledHere: (game.settings.get(MODULE_ID, "disabled") ?? []).includes(id) });
   buildOverlay();
   clearTimeout(state.previews.get(id)?.timer);
   const timer = setTimeout(() => {
@@ -442,6 +506,82 @@ Hooks.on("controlToken", (token, controlled) => {
 for (const hook of ["updateActor", "updateToken", "createActiveEffect", "updateActiveEffect", "deleteActiveEffect",
   "canvasReady", "updateUser", "deleteToken", "createToken"]) {
   Hooks.on(hook, () => scheduleRefresh());
+}
+
+/* -------------------------------------------- */
+/*  Debug Recorder snapshot                     */
+/* -------------------------------------------- */
+
+/**
+ * Runtime state for Dxcufgb's Debug Recorder (optional, see scripts/debug-recorder.js). Effect ids, status ids,
+ * counts and booleans only: no actor, token or user names.
+ */
+function debugSnapshot() {
+  const now = performance.now();
+  // Whose conditions would be shown now (watchedActor records how it chose; put back what refresh() last saw)
+  const lastSource = state.debug.watchSource;
+  const actor = watchedActor();
+  const source = state.debug.watchSource;
+  state.debug.watchSource = lastSource;
+  const statuses = actor?.statuses ? [...actor.statuses] : [];
+  const known = new Set([...EFFECTS.flatMap(e => e.statuses ?? []), "stable", "exhaustion"]);
+  const hp = actor ? foundry.utils.getProperty(actor, "system.attributes.hp") : null;
+  const hpMax = Number(hp?.effectiveMax ?? ((hp?.max ?? 0) + (hp?.tempmax ?? 0)));
+  const hpValue = Number(hp?.value);
+  const computed = actor ? effectsFor(actor) : {};
+  const canvases = {};
+  for (const [id, c] of Object.entries(state.canvases)) {
+    const fadingOut = !c.on && c.offAt > 0 && showing(c, now);
+    if (!c.on && !fadingOut) continue;
+    canvases[id] = { on: !!c.on, fadingOut, hasContext: !!c.ctx, initialised: !!c.s, level: +(c.fx?.level ?? 0).toFixed(3), variant: c.fx?.variant ?? null, step: c.fx?.step ?? null };
+  }
+  const board = document.getElementById("board");
+  return {
+    overlay: {
+      built: !!state.overlay,
+      inDom: !!state.overlay?.isConnected,
+      placement: state.debug.placement,
+      afterBoard: !!board && state.overlay?.previousElementSibling === board,
+      sidebarInsetPx: parseInt(state.overlay?.style.getPropertyValue("--dxse-sidebar"), 10) || 0,
+      sidebarObserved: !!state.sidebarObserver,
+      calmClass: !!state.overlay?.classList.contains("dxse-calm")
+    },
+    motion: {
+      reducedMotion: reducedMotion(),
+      osPrefersReduced: matchMedia("(prefers-reduced-motion: reduce)").matches,
+      loopRunning: !!state.frame,
+      loopStarts: state.debug.loopStarts,
+      canvasSize: Object.values(state.canvases)[0] ? { W: Object.values(state.canvases)[0].W, H: Object.values(state.canvases)[0].H } : null,
+      rebuildsAfterResize: state.debug.rebuilds
+    },
+    watched: {
+      source,
+      lastRefreshSource: lastSource,
+      found: !!actor,
+      type: actor?.type ?? null,
+      tokenActor: !!actor?.isToken,
+      controlledTokens: canvas?.tokens?.controlled?.length ?? 0,
+      lastControlledSet: !!state.lastControlled,
+      hasAssignedCharacter: !!game.user?.character,
+      isGM: !!game.user?.isGM
+    },
+    conditions: {
+      // Only the status ids this module reacts to; any other status (which can be typed in by hand) is just counted
+      statuses: statuses.filter(s => known.has(s)).sort(),
+      otherStatuses: statuses.filter(s => !known.has(s)).length,
+      hasHp: Number.isFinite(hpValue) && hpMax > 0,
+      hpFraction: Number.isFinite(hpValue) && hpMax > 0 ? +(hpValue / hpMax).toFixed(3) : null,
+      deathFailures: actor ? Number(foundry.utils.getProperty(actor, "system.attributes.death.failure")) || 0 : null,
+      exhaustion: actor ? Number(foundry.utils.getProperty(actor, "system.attributes.exhaustion")) || 0 : null,
+      exhaustionLevels: CONFIG.DND5E?.conditionTypes?.exhaustion?.levels ?? null,
+      dnd5eConfig: !!CONFIG.DND5E,
+      computed: Object.keys(computed)
+    },
+    shown: EFFECTS.filter(e => state.layers[e.id]?.classList.contains("dxse-on")).map(e => e.id),
+    canvases,
+    previews: [...state.previews].filter(([, p]) => p.until > Date.now()).map(([id]) => id),
+    refreshes: state.debug.refreshes
+  };
 }
 
 /* -------------------------------------------- */
@@ -472,9 +612,15 @@ class EffectsConfig extends HandlebarsApplicationMixin(ApplicationV2) {
     };
   }
 
+  _onRender(context, options) {
+    super._onRender?.(context, options);
+    crumb("menu.render", { first: !!options?.isFirstRender, effects: context?.effects?.length ?? 0 });
+  }
+
   static async #onSubmit(event, form, formData) {
     const data = formData.object;
     const disabled = EFFECTS.filter(e => !data[e.id]).map(e => e.id);
+    crumb("menu.save", { disabled: disabled.join(","), count: disabled.length });
     await game.settings.set(MODULE_ID, "disabled", disabled);
   }
 

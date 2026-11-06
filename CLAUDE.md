@@ -17,6 +17,11 @@ drawn in code (CSS and 2D canvas), no images. No build step and no npm dependenc
   `draw(ctx, W, H, t, dt, s, fx)`; plus drawing helpers. Low HP has no entry: it is pure CSS.
 - `styles/screen-effects.css` – overlay layout, the Low HP layers and heartbeat, the reduced-motion rules, the menu.
 - `templates/effects.hbs` – the "Choose effects" window. `lang/en.json` – all strings (`DXSE.*`).
+- `scripts/debug-recorder.js` – optional integration with Dxcufgb's Debug Recorder (`dxcufgbs-debug-recorder`, not a
+  dependency): `registerDebugRecorder(snapshot)` (once, on the recorder's ready hook or this module's init/ready) and
+  `crumb(key, data)` (only while recording, never throws). The snapshot is `debugSnapshot()` in `main.js`; the
+  breadcrumbs are left in `main.js` (`overlay.build`, `actor.watch`, `effects.change`, `loop.*`, `canvas.resize`,
+  `preview.*`, `menu.*`) and only when something changed, never per frame.
 - `.github/workflows/ci.yml` / `release.yml` – thin callers of `dxcufgb/foundry-module-ci` (checks, packaging,
   release); identical in every module, do not edit them here. `claude.yml` – the Claude review.
 
@@ -36,6 +41,11 @@ drawn in code (CSS and 2D canvas), no images. No build step and no npm dependenc
 - Every visible setting and the settings menu need a Name and Hint in `lang/en.json`; CI checks it. A new effect
   needs an `EFFECTS` entry, a `DXSE.Effect.*` label and a row in the table on the wiki's Effects page.
 - Update the wiki (not `README.md`, which only has the install steps and links to the wiki) when effects, behaviour or settings change.
+
+- The debug-recorder integration is optional: the module works the same without the recorder, and nothing in it may
+  throw into the module. Snapshot and breadcrumb data must never contain names, free text, image paths or URLs (no
+  actor, token or user names); only counts, booleans, numbers, document types and this module's own effect and
+  status ids.
 
 ## Review focus
 - **Reduce motion and strength apply to every effect**: a new overlay must keep all movement in `draw` driven by
